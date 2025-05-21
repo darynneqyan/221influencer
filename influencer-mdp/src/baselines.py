@@ -1,10 +1,26 @@
 """
 Baseline implementations for the Influencer MDP project.
+Selects a set of influencers in a single batch, given a fixed budget. Does not model sequential selection over multiple campaigns. 
 Includes greedy and random selection strategies.
 """
 
 import numpy as np
 import random
+
+def evaluate_selection(selected, budget):
+    total_engagement_rate = sum(x['engagement_rate'] for x in selected)
+    total_cost = sum(x['cost'] for x in selected)
+    diversity = len(set(x['username'] for x in selected)) if len(selected) > 0 and 'username' in selected[0] else len(selected)
+    budget_utilization = total_cost / budget if budget else 0
+    total_engagement_rate_per_cost = total_engagement_rate / total_cost if total_cost > 0 else 0
+    return {
+        'total_engagement_rate': total_engagement_rate,
+        'total_cost': total_cost,
+        'num_selected': len(selected),
+        'diversity': diversity,
+        'budget_utilization': budget_utilization,
+        'total_engagement_rate_per_cost': total_engagement_rate_per_cost
+    }
 
 class GreedyBaseline:
     def __init__(self, data, budget=1000, engagement_cols=None):
@@ -27,19 +43,7 @@ class GreedyBaseline:
     
     def evaluate(self):
         selected = self.select_influencers()
-        total_engagement = sum(x['engagement'] for x in selected)
-        total_cost = sum(x['cost'] for x in selected)
-        diversity = len(set(x['username'] for x in selected)) if len(selected) > 0 and 'username' in selected[0] else len(selected)
-        budget_utilization = total_cost / self.budget if self.budget else 0
-        avg_engagement_rate = sum(x['engagement_rate'] for x in selected) / len(selected) if len(selected) > 0 else 0
-        return {
-            'total_engagement': total_engagement,
-            'total_cost': total_cost,
-            'num_selected': len(selected),
-            'diversity': diversity,
-            'budget_utilization': budget_utilization,
-            'avg_engagement_rate': avg_engagement_rate
-        }
+        return evaluate_selection(selected, self.budget)
 
 class RandomBaseline:
     def __init__(self, data, budget=1000, engagement_cols=None, seed=42):
@@ -65,16 +69,4 @@ class RandomBaseline:
     
     def evaluate(self):
         selected = self.select_influencers()
-        total_engagement = sum(
-            x['likes'] + 2 * x['comments'] + 3 * x['saves'] for _, x in selected.iterrows()
-        )
-        total_cost = sum(x['cost'] for _, x in selected.iterrows())
-        diversity = len(set(x['username'] for _, x in selected.iterrows())) if not selected.empty and 'username' in selected.columns else len(selected)
-        budget_utilization = total_cost / self.budget if self.budget else 0
-        return {
-            'total_engagement': total_engagement,
-            'total_cost': total_cost,
-            'num_selected': len(selected),
-            'diversity': diversity,
-            'budget_utilization': budget_utilization
-        } 
+        return evaluate_selection(selected, self.budget) 
