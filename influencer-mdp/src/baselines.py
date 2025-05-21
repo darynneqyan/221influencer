@@ -13,15 +13,12 @@ class GreedyBaseline:
         self.engagement_cols = engagement_cols or ['likes', 'comments', 'saves']
         
     def select_influencers(self):
-        """Select influencers greedily based on engagement per cost.
-        engagement = likes + 2 * comments + 3 * saves """
+        """Select influencers greedily based on engagement rate per cost."""
         df = self.data.copy()
-        df['engagement'] = df['likes'].fillna(0) + 2 * df['comments'].fillna(0) + 3 * df['saves'].fillna(0)
-        df['engagement_per_cost'] = df['engagement'] / df['cost']
-        sorted_influencers = df.sort_values('engagement_per_cost', ascending=False)
+        df['engagement_rate_per_cost'] = df['engagement_rate'] / df['cost']
+        sorted_influencers = df.sort_values('engagement_rate_per_cost', ascending=False)
         selected = []
         remaining_budget = self.budget
-        
         for _, influencer in sorted_influencers.iterrows():
             if influencer['cost'] <= remaining_budget:
                 selected.append(influencer)
@@ -34,12 +31,14 @@ class GreedyBaseline:
         total_cost = sum(x['cost'] for x in selected)
         diversity = len(set(x['username'] for x in selected)) if len(selected) > 0 and 'username' in selected[0] else len(selected)
         budget_utilization = total_cost / self.budget if self.budget else 0
+        avg_engagement_rate = sum(x['engagement_rate'] for x in selected) / len(selected) if len(selected) > 0 else 0
         return {
             'total_engagement': total_engagement,
             'total_cost': total_cost,
             'num_selected': len(selected),
             'diversity': diversity,
-            'budget_utilization': budget_utilization
+            'budget_utilization': budget_utilization,
+            'avg_engagement_rate': avg_engagement_rate
         }
 
 class RandomBaseline:
