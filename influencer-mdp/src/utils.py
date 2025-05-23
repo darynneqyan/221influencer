@@ -93,15 +93,21 @@ def load_data(filepath: str = '../data/influencers.csv') -> pd.DataFrame:
 #     return df 
 
 def load_train_test_data(train_path: str = '../data/train.csv', test_path: str = '../data/test.csv') -> tuple:
+    # Load train + test
     train_df = pd.read_csv(train_path, encoding='utf-8')
     test_df = pd.read_csv(test_path, encoding='latin1')
 
+    # Engagement = likes + 2*comments + 3*saves
     train_df['engagement'] = (
-        train_df['likes'].fillna(0) + 2 * train_df['comments'].fillna(0) + 3 * train_df['saves'].fillna(0)
+        train_df['likes'].fillna(0) +
+        2 * train_df['comments'].fillna(0) +
+        3 * train_df['saves'].fillna(0)
     )
 
-    train_df['cost'] = train_df['engagement'] / 10000
-    train_df['cost'] = train_df['cost'].clip(lower=50, upper=1000)
+    train_df['cost'] = train_df['engagement'] / 35
+    train_df['cost'] = train_df['cost'].clip(lower=50, upper=350)
+
+    train_df['engagement_rate'] = train_df['engagement'] / train_df['followers'].clip(lower=1)
 
     return train_df, test_df
 

@@ -6,6 +6,7 @@ Includes greedy and random selection strategies.
 
 import numpy as np
 import random
+import math
 
 def evaluate_selection(selected, budget):
     total_engagement_rate = sum(x['engagement_rate'] for x in selected)
@@ -29,44 +30,56 @@ class GreedyBaseline:
         self.engagement_cols = engagement_cols or ['likes', 'comments', 'saves']
         
     def select_influencers(self):
-        """Select influencers greedily based on engagement rate per cost."""
+        """Select the single best influencer based on engagement rate per cost."""
         df = self.data.copy()
         df['engagement_rate_per_cost'] = df['engagement_rate'] / df['cost']
         sorted_influencers = df.sort_values('engagement_rate_per_cost', ascending=False)
-        selected = []
-        remaining_budget = self.budget
+        
+        # Select only the best influencer within budget
         for _, influencer in sorted_influencers.iterrows():
-            if influencer['cost'] <= remaining_budget:
-                selected.append(influencer)
-                remaining_budget -= influencer['cost']
-        return selected
+            if influencer['cost'] <= self.budget:
+                return [influencer]
+        return []
     
     def evaluate(self):
         selected = self.select_influencers()
-        return evaluate_selection(selected, self.budget)
+        return {
+            'selected_influencers': selected,
+            'total_engagement': sum(
+                inf['likes'] + 2 * inf['comments'] + 3 * inf['saves']
+                for inf in selected
+            )
+        }
+
 
 class RandomBaseline:
-    def __init__(self, data, budget=1000, engagement_cols=None, seed=42):
+    def __init__(self, data, budget=1000, engagement_cols=None):
         self.data = data
         self.budget = budget
         self.engagement_cols = engagement_cols or ['likes', 'comments', 'saves']
-        self.seed = seed
         
     def select_influencers(self):
+        """Select a single random influencer within budget."""
         df = self.data.copy()
         available = df[df['cost'] <= self.budget].copy()
-        selected = []
-        remaining_budget = self.budget
-        rng = np.random.default_rng(self.seed)
-        indices = list(available.index)
-        rng.shuffle(indices)
-        for idx in indices:
-            influencer = available.loc[idx]
-            if influencer['cost'] <= remaining_budget:
-                selected.append(influencer)
-                remaining_budget -= influencer['cost']
-        return selected
+        if len(available) == 0:
+            return []
+            
+        # Shuffle the data to ensure true randomness
+        available = available.sample(frac=1, random_state=None)  # No fixed seed
+        
+        # Take the first one that fits the budget
+        for _, influencer in available.iterrows():
+            if influencer['cost'] <= self.budget:
+                return [influencer]
+        return []
     
     def evaluate(self):
         selected = self.select_influencers()
-        return evaluate_selection(selected, self.budget) 
+        return {
+            'selected_influencers': selected,
+            'total_engagement': sum(
+                inf['likes'] + 2 * inf['comments'] + 3 * inf['saves']
+                for inf in selected
+            )
+        }

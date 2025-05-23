@@ -11,14 +11,27 @@ from utils import load_train_test_data
 import json
 
 def main():
-    # Load data
     train_data, _ = load_train_test_data()
-    train_data = train_data.head(12)  # use 12–15 influencers max
+    train_data['engagement_rate'] = train_data['engagement'] / train_data['followers'].clip(lower=1)
+    train_data = train_data.head(12)
 
 
     # Initialize and evaluate baselines
     greedy = GreedyBaseline(train_data)
     random = RandomBaseline(train_data)
+
+     # Evaluate baselines
+    greedy_result = greedy.evaluate()
+    random_result = random.evaluate()
+
+    print("\n--- Greedy Baseline ---")
+    print(f"Total Engagement: {greedy_result['total_engagement']}")
+    print("Influencers:", [step['username'] for step in greedy_result['selected_influencers']])
+
+    print("\n--- Random Baseline ---")
+    print(f"Total Engagement: {random_result['total_engagement']}")
+    print("Influencers:", [step['username'] for step in random_result['selected_influencers']])
+
 
     # Initialize and evaluate MDP model
     mdp = ValueIterationMDP(train_data)
