@@ -5,8 +5,7 @@ Includes greedy and random selection strategies.
 """
 
 import numpy as np
-import random
-import math
+import pandas as pd
 
 def evaluate_selection(selected, budget):
     total_engagement_rate = sum(x['engagement_rate'] for x in selected)
@@ -24,62 +23,87 @@ def evaluate_selection(selected, budget):
     }
 
 class GreedyBaseline:
-    def __init__(self, data, budget=1000, engagement_cols=None):
+    def __init__(self, data, budget=1000, engagement_cols=None, horizon=3):
         self.data = data
         self.budget = budget
         self.engagement_cols = engagement_cols or ['likes', 'comments', 'saves']
+        self.horizon = horizon
         
     def select_influencers(self):
-        """Select the single best influencer based on engagement rate per cost."""
+        """Select up to `horizon` best influencers based on engagement rate per cost, within budget."""
         df = self.data.copy()
-        df['engagement_rate_per_cost'] = df['engagement_rate'] / df['cost']
+        # Ensure engagement rate per cost is calculated + handle division by zero/NaN costs
+        df['engagement_rate_per_cost'] = df.apply(lambda row: row['engagement_rate'] / row['cost'] if row['cost'] > 0 and not pd.isna(row['cost']) else 0, axis=1)
         sorted_influencers = df.sort_values('engagement_rate_per_cost', ascending=False)
-        
-        # Select only the best influencer within budget
+        selected = []
+        total_cost = 0
         for _, influencer in sorted_influencers.iterrows():
-            if influencer['cost'] <= self.budget:
-                return [influencer]
-        return []
+            cost = influencer['cost'] if not pd.isna(influencer['cost']) else 0
+            if len(selected) >= self.horizon:
+                break
+            if total_cost + cost <= self.budget:
+                selected.append(influencer)
+                total_cost += cost
+        return selected
     
     def evaluate(self):
         selected = self.select_influencers()
+        
+        # Calculate total engagement 
+        total_engagement = sum(
+            (inf.get('likes', 0) if pd.notna(inf.get('likes', 0)) else 0) + 
+            2 * (inf.get('comments', 0) if pd.notna(inf.get('comments', 0)) else 0) + 
+            3 * (inf.get('saves', 0) if pd.notna(inf.get('saves', 0)) else 0)
+            for inf in selected
+        )
+
         return {
             'selected_influencers': selected,
-            'total_engagement': sum(
-                inf['likes'] + 2 * inf['comments'] + 3 * inf['saves']
-                for inf in selected
-            )
+            'total_engagement': total_engagement
         }
+        
 
 
 class RandomBaseline:
-    def __init__(self, data, budget=1000, engagement_cols=None):
+    def __init__(self, data, budget=1000, engagement_cols=None, horizon=3):
         self.data = data
         self.budget = budget
         self.engagement_cols = engagement_cols or ['likes', 'comments', 'saves']
+        self.horizon = horizon
         
     def select_influencers(self):
-        """Select a single random influencer within budget."""
+        """Select up to `horizon` random influencers within budget."""
         df = self.data.copy()
+        # Ensure cost is a number before filtering
+        df['cost'] = df['cost'].apply(lambda x: x if not pd.isna(x) else 0)
         available = df[df['cost'] <= self.budget].copy()
         if len(available) == 0:
             return []
-            
-        # Shuffle the data to ensure true randomness
-        available = available.sample(frac=1, random_state=None)  # No fixed seed
-        
-        # Take the first one that fits the budget
+        available = available.sample(frac=1, random_state=None)  # Shuffle
+        selected = []
+        total_cost = 0
         for _, influencer in available.iterrows():
-            if influencer['cost'] <= self.budget:
-                return [influencer]
-        return []
+            # Ensure cost is a number before adding
+            cost = influencer['cost'] if not pd.isna(influencer['cost']) else 0
+            if len(selected) >= self.horizon:
+                break
+            if total_cost + cost <= self.budget:
+                selected.append(influencer)
+                total_cost += cost
+        return selected
     
     def evaluate(self):
         selected = self.select_influencers()
+        
+        # Calculate total engagement using the same logic as MDP's 
+        total_engagement = sum(
+            (inf.get('likes', 0) if pd.notna(inf.get('likes', 0)) else 0) + 
+            2 * (inf.get('comments', 0) if pd.notna(inf.get('comments', 0)) else 0) + 
+            3 * (inf.get('saves', 0) if pd.notna(inf.get('saves', 0)) else 0)
+            for inf in selected
+        )
+
         return {
             'selected_influencers': selected,
-            'total_engagement': sum(
-                inf['likes'] + 2 * inf['comments'] + 3 * inf['saves']
-                for inf in selected
-            )
+            'total_engagement': total_engagement
         }

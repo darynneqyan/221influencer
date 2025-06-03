@@ -104,6 +104,11 @@ def load_train_test_data(train_path: str = '../data/train.csv', test_path: str =
         3 * train_df['saves'].fillna(0)
     )
 
+    # Apply a power transformation to raw engagement to reduce disparity
+    # This helps create a more even playing field among influencers.
+    # engagement_power = 0.5 # Configurable power (e.g., 0.5 for square root)
+    # train_df['engagement'] = train_df['engagement'].apply(lambda x: (x**engagement_power) if x > 0 else 0)
+
     train_df['cost'] = train_df['engagement'] / 35
     train_df['cost'] = train_df['cost'].clip(lower=50, upper=350)
 
